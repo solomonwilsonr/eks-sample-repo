@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 796973495528.dkr.ecr.us-east-1.amazonaws.com
+      - REPO_URI=796973495528.dkr.ecr.us-east-1.amazonaws.com/eks-sample-app
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $REPO_URI:latest -t $REPO_URI:$IMAGE_TAG .
+  post_build:
+    commands:
+      - echo Pushing the Docker image...
+      - docker push $REPO_URI:latest
+      - docker push $REPO_URI:$IMAGE_TAG
+      - echo "IMAGE_REPO=$REPO_URI" >> build.env
+      - echo "IMAGE_TAG=$IMAGE_TAG" >> build.env
+artifacts:
+  files:
+    - build.env
