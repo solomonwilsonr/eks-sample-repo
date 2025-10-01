@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eks-sample-deploy
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: eks-sample }
+  template:
+    metadata:
+      labels: { app: eks-sample }
+    spec:
+      containers:
+        - name: web
+          image: $IMAGE_REPO:$IMAGE_TAG
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+          resources:
+            requests:
+              cpu: "100m"        # reserve 0.1 vCPU
+              memory: "128Mi"    # reserve 128 MiB
+            limits:
+              cpu: "500m"        # hard cap 0.5 vCPU
+              memory: "256Mi"    # hard cap 256 MiB
+          readinessProbe:
+            httpGet: { path: "/", port: 3000 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: "/", port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
