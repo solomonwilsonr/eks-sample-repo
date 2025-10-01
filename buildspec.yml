@@ -1,24 +1,38 @@
 version: 0.2
 
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-east-1
+  # CODEBUILD_RESOLVED_SOURCE_VERSION is provided by CodeBuild
+
 phases:
+  install:
+    commands:
+      - echo "Install phase started on $(date)"
+      - echo "Docker-in-Docker requires privileged mode (enable in project settings)"
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 796973495528.dkr.ecr.us-east-1.amazonaws.com
-      - REPO_URI=796973495528.dkr.ecr.us-east-1.amazonaws.com/eks-sample-app
-      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
+      - echo "Logging in to Amazon ECR..."
+      - |
+        aws ecr get-login-password --region $AWS_DEFAULT_REGION \
+        | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+      - export REPO_URI=${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/eks-sample-app
+      - export IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}
+      - echo "REPO_URI=$REPO_URI"
+      - echo "IMAGE_TAG=$IMAGE_TAG"
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
+      - echo "Build started on $(date)"
       - docker build -t $REPO_URI:latest -t $REPO_URI:$IMAGE_TAG .
   post_build:
     commands:
-      - echo Pushing the Docker image...
+      - echo "Pushing images to ECR..."
       - docker push $REPO_URI:latest
       - docker push $REPO_URI:$IMAGE_TAG
-      - echo "IMAGE_REPO=$REPO_URI" >> build.env
-      - echo "IMAGE_TAG=$IMAGE_TAG" >> build.env
+      - echo "Writing environment file for CodePipeline EKS deploy..."
+      - printf "IMAGE_REPO=%s\nIMAGE_TAG=%s\n" "$REPO_URI" "$IMAGE_TAG" > build.env
+
 artifacts:
   files:
     - build.env
+  discard-paths: yes
